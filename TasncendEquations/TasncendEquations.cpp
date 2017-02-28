@@ -6,6 +6,8 @@
 #include <string>
 #include <functional>
 
+#define MAX_ITER 100000
+
 double Func(double x)
 {
 	return 8 * cos(x) - x - 6;
@@ -436,6 +438,86 @@ double SimpleIter(double Precission, double IntervalStart, double IntervalEnd, s
 
 }
 
+void NewtonSystem(double Precission, double StartX, double StartY)
+{
+	/*std::function<double(double, double)> f1 = [](double x, double y) {return sin(x + 1) - y - 1.2;};
+	std::function<double(double, double)> f2 = [](double x, double y) {return 2*x + cos(y) - 2;};
+
+
+	std::function<double(double, double)> df1x = [](double x, double y) {return cos(x + 1);};
+	std::function<double(double, double)> df1y = [](double x, double y) {return -1;};
+
+
+	std::function<double(double, double)> df2x = [](double x, double y) {return 2;};
+	std::function<double(double, double)> df2y = [](double x, double y) {return -sin(y);};*/
+
+	std::function<double(double, double)> f1 = [](double x, double y) {return 0.1*x*x + x + 0.2*y*y-0.3;};
+	std::function<double(double, double)> f2 = [](double x, double y) {return 0.2*x*x + y - 0.1*x*y - 0.7;};
+
+
+	std::function<double(double, double)> df1x = [](double x, double y) {return 0.2*x+1;};
+	std::function<double(double, double)> df1y = [](double x, double y) {return 0.4*y;};
+
+
+	std::function<double(double, double)> df2x = [](double x, double y) {return 0.4*x-0.1*y;};
+	std::function<double(double, double)> df2y = [](double x, double y) {return 1-0.1*x;};
+
+	double NewX = 0;
+	double NewY = 0;
+
+	double OldX = StartX;
+	double OldY = StartY;
+
+	printf("Newton system\n");
+	printf("So we trying to solve a system with precission %f\n", Precission);
+	printf("f1: sin(x+1) - y - 1.2 = 0\n");
+	printf("f2: 2x + cos(y) - 2 = 0\n");
+	printf("Starting from (%f; %f)\n", StartX, StartY);
+
+
+
+	bool SolutionFind = false;
+	int Iterations = 0;
+	while(true){
+
+		double f1val = f1(OldX, OldY);
+		double f2val = f2(OldX, OldY);
+
+
+		double df1xval = df1x(OldX, OldY);
+		double df1yval = df1y(OldX, OldY);
+
+		double df2xval = df2x(OldX, OldY);
+		double df2yval = df2y(OldX, OldY);
+
+		//Precalc
+		double DetJ = df1x(OldX, OldY)* df2y(OldX, OldY) - df1y(OldX, OldY)* df2x(OldX, OldY);
+		double DetAx = f1(OldX, OldY)* df2y(OldX, OldY) - df1y(OldX, OldY)* f2(OldX, OldY);
+		double DetAy = df1x(OldX, OldY)* f2(OldX, OldY) - f1(OldX, OldY)* df2x(OldX, OldY);
+
+		NewX = OldX - DetAx / DetJ;
+		NewY = OldY - DetAy / DetJ;
+
+		if (Iterations > MAX_ITER)
+		{break; }
+		if ((abs(NewX - OldX) < Precission) && (abs(NewY - OldY) < Precission))
+		{
+			SolutionFind = true;
+			break;
+		}
+
+		Iterations++;
+	}
+
+	if (SolutionFind)
+	{
+		printf("After %i iteration we found, that (%f, %f) is a solution!\n", Iterations, NewX, NewY);
+	}
+	else {
+		printf("Even after %i iteration we didn't get close enough.  (%f, %f) is a best guess\n", Iterations, NewX, NewY);
+	}
+
+}
 
 int main()
 {
@@ -448,16 +530,18 @@ int main()
 	double BorderLow = -6;
 	double BorderHigh = -4;
 
-	Dichotomy(Preccision, BorderLow, BorderHigh, FunStr, Func);
+	NewtonSystem(0.0001, 0.25, 0.75);
+
+	/*Dichotomy(Preccision, BorderLow, BorderHigh, FunStr, Func);
 	Chordes(Preccision, BorderLow, BorderHigh, FunStr, Func);
 	Newton(Preccision, BorderLow, BorderHigh, FunStr, Func, FuncDif, -5);
 	NewtonNonDiff(Preccision, BorderLow, BorderHigh, FunStr, Func, -4.9, -5);
-	Chebishev(Preccision, BorderLow, BorderHigh, FunStr, Func, FuncDif, -5, FuncDifDif);
+	Chebishev(Preccision, BorderLow, BorderHigh, FunStr, Func, FuncDif, -5, FuncDifDif);*/
 
 
 	std::string AlterFuncStr = "f(x) = x+(3/24)*(8*cos(x)-x-6)";
 	std::function<double(double)> AlterFunc = [](double x) {return x + ((double)3/24) * (8 * cos(x) - x - 6);};
-	SimpleIter(Preccision, BorderLow, BorderHigh, FunStr, Func, AlterFuncStr, AlterFunc, -5 );
+	//SimpleIter(Preccision, BorderLow, BorderHigh, FunStr, Func, AlterFuncStr, AlterFunc, -5 );
     return 0;
 }
 
