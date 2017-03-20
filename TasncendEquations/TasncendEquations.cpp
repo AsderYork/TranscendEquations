@@ -5,8 +5,10 @@
 #include <cmath>
 #include <string>
 #include <functional>
+#include <vector>
 
 #define MAX_ITER 100000
+//#define DIF_METHODS_VERBOUSE
 
 double Func(double x)
 {
@@ -438,6 +440,7 @@ double SimpleIter(double Precission, double IntervalStart, double IntervalEnd, s
 
 }
 
+
 void NewtonSystem(double Precission, double StartX, double StartY)
 {
 	/*std::function<double(double, double)> f1 = [](double x, double y) {return sin(x + 1) - y - 1.2;};
@@ -519,9 +522,115 @@ void NewtonSystem(double Precission, double StartX, double StartY)
 
 }
 
+std::vector<double> DiffEuler(std::function<double(double, double)> Func, double StartX, double StartY, double StepSize,int Steps, std::string FuncRep)
+{
+	/*So we recives a function which looks like y'=Func(x,y); And a Caucher condition, that at x=StartX, Y=StartY.
+	Using that, and a Euler's method, we trying to find values of y(StartX+StepSize*i) i=0..Steps*/
+#ifdef DIF_METHODS_VERBOUSE
+	printf("Euler's diff-equations\n ");
+	printf("Function: y'=%s\n", FuncRep.c_str());
+	printf("y(%f)=%f\n", StartX, StartY);
+	printf("Iterating %i steps in size of %f\n", Steps, StepSize);
+#endif
+	double tmpY = StartY;
+	std::vector<double> Result;
+
+	//printf("So on the % 5i step, y(% 8.4f)=% 8.4f\n", 0 , StartX, StartY);
+	for (int i=0; i <= Steps; i++)
+	{
+		tmpY = StartY + StepSize*Func(StartX + StepSize*(i), tmpY);
+		Result.push_back(tmpY);
+#ifdef DIF_METHODS_VERBOUSE
+		printf("So on the % 5i step, y(% 8.4f)=% 8.4f\n", i, StartX + StepSize*(i), tmpY);
+#endif
+	}
+	return Result;
+}
+
+
+std::vector<double> RungeKutt2(std::function<double(double, double)> Func, double StartX, double StartY, double StepSize, int Steps, std::string FuncRep, std::vector<double> Constants)
+{
+	/*
+	Constants[0] - a21
+	Constants[1] - b1
+	Constants[2] - b2
+	Constants[3] - c
+	*/
+#ifdef DIF_METHODS_VERBOUSE
+	printf("Runge-Kutt's diff-equations\n ");
+	printf("Function: y'=%s\n", FuncRep.c_str());
+	printf("y(%f)=%f\n", StartX, StartY);
+	printf("Iterating %i steps in size of %f\n", Steps, StepSize);
+#endif 
+	double tmpY = StartY;
+	std::vector<double> Result;
+
+	//printf("So on the % 5i step, y(% 8.4f)=% 8.4f\n", 0 , StartX, StartY);
+	for (int i = 0; i <= Steps; i++)
+	{
+		double tmpX = StartX + StepSize*(i);
+		double K1 = Func(tmpX, tmpY);
+		double K2 = Func(tmpX + StepSize*Constants[3], tmpY + Constants[0] * StepSize*K1);
+
+		tmpY = StartY + StepSize*(Constants[1]*K1 + Constants[2]*K2);
+		Result.push_back(tmpY);
+#ifdef DIF_METHODS_VERBOUSE
+		printf("So on the % 5i step, y(% 8.4f)=% 8.4f\n", i, StartX + StepSize*(i), tmpY);
+#endif
+
+	}
+	return Result;
+
+}
+
+std::vector<double> RungeKutt4(std::function<double(double, double)> Func, double StartX, double StartY, double StepSize, int Steps, std::string FuncRep)
+{
+
+#ifdef DIF_METHODS_VERBOUSE
+	printf("Runge-Kutt's diff-equations\n ");
+	printf("Function: y'=%s\n", FuncRep.c_str());
+	printf("y(%f)=%f\n", StartX, StartY);
+	printf("Iterating %i steps in size of %f\n", Steps, StepSize);
+#endif 
+	double tmpY = StartY;
+	std::vector<double> Result;
+
+	//printf("So on the % 5i step, y(% 8.4f)=% 8.4f\n", 0 , StartX, StartY);
+	for (int i = 0; i <= Steps; i++)
+	{
+		double tmpX = StartX + StepSize*(i);
+		double K1 = Func(tmpX , tmpY);
+		double K2 = Func(tmpX + StepSize / 2, tmpY + (StepSize / 2)*K1);
+		double K3 = Func(tmpX + StepSize / 2, tmpY + (StepSize / 2)*K2);
+		double K4 = Func(tmpX + StepSize, tmpY + StepSize*K3);
+
+		tmpY = StartY + (StepSize/6)*(K1 + 2*K2 + 2*K3 + K4);
+		Result.push_back(tmpY);
+#ifdef DIF_METHODS_VERBOUSE
+		printf("So on the % 5i step, y(% 8.4f)=% 8.4f\n", i, StartX + StepSize*(i), tmpY);
+#endif
+
+	}
+	return Result;
+
+}
+
+
+
+std::vector<double> BuildConstantsFromAlpha(double Alpha)
+{
+	std::vector<double> Result;
+	Result.push_back(1 / (2 * Alpha));
+	Result.push_back(1 - Alpha);
+	Result.push_back(Alpha);
+	Result.push_back(1 / (2 * Alpha));
+	
+	return Result;
+}
+
 int main()
 {
-	std::string FunStr = "f(x) = 8 * cos(x) - x - 6";
+	/*std::string FunStr = "f(x) = 8 * cos(x) - x - 6";
 	std::string FunStrDif = "f(x) = -8 * sin(x) - 1";
 	std::function<double(double)> Func = [](double x) {return 8 * cos(x) - x - 6;};
 	std::function<double(double)> FuncDif = [](double x) {return -8 * sin(x) - 1;};
@@ -530,18 +639,34 @@ int main()
 	double BorderLow = -6;
 	double BorderHigh = -4;
 
-	NewtonSystem(0.0001, 0.25, 0.75);
+	NewtonSystem(0.0001, 0.25, 0.75);*/
 
 	/*Dichotomy(Preccision, BorderLow, BorderHigh, FunStr, Func);
 	Chordes(Preccision, BorderLow, BorderHigh, FunStr, Func);
 	Newton(Preccision, BorderLow, BorderHigh, FunStr, Func, FuncDif, -5);
 	NewtonNonDiff(Preccision, BorderLow, BorderHigh, FunStr, Func, -4.9, -5);
-	Chebishev(Preccision, BorderLow, BorderHigh, FunStr, Func, FuncDif, -5, FuncDifDif);*/
+	Chebishev(Preccision, BorderLow, BorderHigh, FunStr, Func, FuncDif, -5, FuncDifDif);
 
 
 	std::string AlterFuncStr = "f(x) = x+(3/24)*(8*cos(x)-x-6)";
 	std::function<double(double)> AlterFunc = [](double x) {return x + ((double)3/24) * (8 * cos(x) - x - 6);};
-	//SimpleIter(Preccision, BorderLow, BorderHigh, FunStr, Func, AlterFuncStr, AlterFunc, -5 );
+	SimpleIter(Preccision, BorderLow, BorderHigh, FunStr, Func, AlterFuncStr, AlterFunc, -5 );*/
+	int Steps = 1000;
+	std::vector<std::vector<double>> Results;
+	Results.push_back(DiffEuler([](double X, double Y) {return X + Y;}, 0, 1, 0.0001, Steps, "x+y"));
+	Results.push_back(RungeKutt2([](double X, double Y) {return X + Y;}, 0, 1, 0.0001, Steps, "x+y", BuildConstantsFromAlpha(0.5)));
+	Results.push_back(RungeKutt4([](double X, double Y) {return X + Y;}, 0, 1, 0.0001, Steps, "x+y"));
+
+#ifndef DIF_METHODS_VERBOUSE
+	printf("So this is results of methods\n");
+	printf("Euler's     |Runge-Kutt 2|Runge-Kutt 4|\n");
+	for (int i = 0; i < Steps; i++)
+	{
+		printf("%e|%e|%e\n", Results[0][i], Results[1][i], Results[2][i]);
+	}
+
+#endif
+
     return 0;
 }
 
