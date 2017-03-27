@@ -6,9 +6,10 @@
 #include <string>
 #include <functional>
 #include <vector>
+#include <queue>
 
 #define MAX_ITER 100000
-//#define DIF_METHODS_VERBOUSE
+#define DIF_METHODS_VERBOUSE
 
 double Func(double x)
 {
@@ -583,7 +584,7 @@ std::vector<double> RungeKutt2(std::function<double(double, double)> Func, doubl
 
 }
 
-std::vector<double> RungeKutt4(std::function<double(double, double)> Func, double StartX, double StartY, double StepSize, int Steps, std::string FuncRep)
+std::vector<double> RungeKutt4(std::function<double(double, double)> Func, double StartX, double StartY, double StepSize, int Steps, std::string FuncRep, std::function<double(double)> *CheckFunc)
 {
 
 #ifdef DIF_METHODS_VERBOUSE
@@ -593,21 +594,40 @@ std::vector<double> RungeKutt4(std::function<double(double, double)> Func, doubl
 	printf("Iterating %i steps in size of %f\n", Steps, StepSize);
 #endif 
 	double tmpY = StartY;
+	double tmpX = StartX;
+	double K1 = 0;
+	double K2 = 0;
+	double K3 = 0;
+	double K4 = 0;
 	std::vector<double> Result;
 
-	//printf("So on the % 5i step, y(% 8.4f)=% 8.4f\n", 0 , StartX, StartY);
-	for (int i = 0; i <= Steps; i++)
-	{
-		double tmpX = StartX + StepSize*(i);
-		double K1 = Func(tmpX , tmpY);
-		double K2 = Func(tmpX + StepSize / 2, tmpY + (StepSize / 2)*K1);
-		double K3 = Func(tmpX + StepSize / 2, tmpY + (StepSize / 2)*K2);
-		double K4 = Func(tmpX + StepSize, tmpY + StepSize*K3);
+	printf("So on the % 5i step, y(% 8.4f)=% 8.4f;", 0, tmpX, tmpY);
+	if (CheckFunc != nullptr) {
+		printf("ActualY% 8.4f; Difference: %e", (*CheckFunc)(tmpX), tmpY - (*CheckFunc)(tmpX));
 
-		tmpY = StartY + (StepSize/6)*(K1 + 2*K2 + 2*K3 + K4);
+	}
+	printf("\n");
+	//A zero step
+	Result.push_back(tmpY);
+	for (int i = 1; i <= Steps; i++)
+	{
+		K1 = StepSize*Func(tmpX , tmpY);
+		K2 = StepSize*Func(tmpX + (StepSize / 2.0f), tmpY + K1 / 2.0f);
+		K3 = StepSize*Func(tmpX + (StepSize / 2.0f), tmpY + K2 / 2.0f);
+		K4 = StepSize*Func(tmpX + StepSize, tmpY + K3);
+		tmpX = StartX + StepSize*(i);
+
+		tmpY = tmpY + (K1 + K2*2.0f + K3*2.0f + K4)/6.0f;
+
 		Result.push_back(tmpY);
 #ifdef DIF_METHODS_VERBOUSE
-		printf("So on the % 5i step, y(% 8.4f)=% 8.4f\n", i, StartX + StepSize*(i), tmpY);
+
+		printf("So on the % 5i step, y(% 8.4f)=% 8.4f;", i, tmpX, tmpY);
+		if (CheckFunc != nullptr) {
+			printf("ActualY% 8.4f; Difference: %e", (*CheckFunc)(tmpX), tmpY - (*CheckFunc)(tmpX));
+
+		}
+		printf("\n");
 #endif
 
 	}
@@ -627,6 +647,62 @@ std::vector<double> BuildConstantsFromAlpha(double Alpha)
 	
 	return Result;
 }
+
+std::vector<double> Foursteps(std::function<double(double, double)> Func, double StartX, std::vector<double> FistValues, double StepSize, int Steps, std::string FuncRep, std::function<double(double)> *CheckFunc)
+{
+	std::vector<double> Return;
+	if (FistValues.size() != 4) { printf("Wrong size of input values array"); return Return; }
+	if (Steps < 4) { printf("There are no steps to process. Four is allready gaven"); return Return; }
+
+	printf("Four-stepped multistep method of diff-equations solving\n ");
+	printf("Function: y'=%s\n", FuncRep.c_str());
+	printf("y(%f)=%f\n", StartX, FistValues[0]);
+	printf("We also know, that\n");
+	printf("y(%f)=%f\n", StartX+ StepSize, FistValues[1]);
+	printf("y(%f)=%f\n", StartX + StepSize*2, FistValues[2]);
+	printf("y(%f)=%f\n", StartX + StepSize*3, FistValues[3]);
+	printf("Iterating %i steps in size of %f\n", Steps, StepSize);
+
+	int Step = 3;
+
+	Return.push_back(FistValues[0]);
+	Return.push_back(FistValues[1]);
+	Return.push_back(FistValues[2]);
+	Return.push_back(FistValues[3]);
+
+
+	double LastY = FistValues[3];
+	double LastX = StartX + StepSize * 4;
+	
+	while (Step < Steps)
+	{
+		
+		LastY = Return[Step] +(StepSize / 24.0f)*
+			(
+			55 * Func(StartX + StepSize * Step, Return[Step])
+			- 59 * Func(StartX + StepSize * (Step - 1), Return[Step - 1])
+			+ 37 * Func(StartX + StepSize * (Step - 2), Return[Step - 2])
+			- 9 * Func(StartX + StepSize * (Step - 3), Return[Step - 3])
+			);
+		Return.push_back(LastY);
+
+		Step++;
+		LastX = StartX + StepSize*Step;
+#ifdef DIF_METHODS_VERBOUSE
+
+			printf("So on the % 5i step, y(% 8.4f)=% 8.4f;", Step, LastX, LastY);
+		if (CheckFunc != nullptr) {
+			printf("ActualY% 8.4f; Difference: %e", (*CheckFunc)(LastX), LastY - (*CheckFunc)(LastX));
+
+		}
+		printf("\n");
+#endif
+
+	}
+
+	return Return;
+}
+
 
 int main()
 {
@@ -651,21 +727,28 @@ int main()
 	std::string AlterFuncStr = "f(x) = x+(3/24)*(8*cos(x)-x-6)";
 	std::function<double(double)> AlterFunc = [](double x) {return x + ((double)3/24) * (8 * cos(x) - x - 6);};
 	SimpleIter(Preccision, BorderLow, BorderHigh, FunStr, Func, AlterFuncStr, AlterFunc, -5 );*/
-	int Steps = 1000;
-	std::vector<std::vector<double>> Results;
-	Results.push_back(DiffEuler([](double X, double Y) {return X + Y;}, 0, 1, 0.0001, Steps, "x+y"));
-	Results.push_back(RungeKutt2([](double X, double Y) {return X + Y;}, 0, 1, 0.0001, Steps, "x+y", BuildConstantsFromAlpha(0.5)));
-	Results.push_back(RungeKutt4([](double X, double Y) {return X + Y;}, 0, 1, 0.0001, Steps, "x+y"));
+	int Steps = 10;
+	double XStart = 0;
+	double YStart = 2;
+	double StepSize = 0.1;
+	std::vector<double> Results;
 
-#ifndef DIF_METHODS_VERBOUSE
-	printf("So this is results of methods\n");
-	printf("Euler's     |Runge-Kutt 2|Runge-Kutt 4|\n");
-	for (int i = 0; i < Steps; i++)
-	{
-		printf("%e|%e|%e\n", Results[0][i], Results[1][i], Results[2][i]);
-	}
+	auto Func = [](double x, double y) {return exp(x)-exp(-x);};
+	std::string FuncStr = "e*x - e*(-x)";
+	std::function<double(double)> TestFunc = [](double x) {return exp(x) + exp(-x);};
 
-#endif
+
+	/*auto Func = [](double x, double y) {return 2*x;};
+	std::string FuncStr = "2*x";
+	std::function<double(double)> TestFunc = [](double x) {return x*x;};*/
+
+	//Results.push_back(Func, XStart, YStart, 0.0001, Steps, "x+y"));
+	//Results.push_back(Func, XStart, YStart, 0.0001, Steps, "x+y", BuildConstantsFromAlpha(0.5)));
+
+	Results = RungeKutt4(Func, XStart, YStart, StepSize, Steps, FuncStr, &TestFunc);
+	std::vector<double> First4Results{ Results[0], Results[1], Results[2], Results[3]};
+	Foursteps(Func, XStart, First4Results, StepSize, Steps, FuncStr, &TestFunc);
+
 
     return 0;
 }
